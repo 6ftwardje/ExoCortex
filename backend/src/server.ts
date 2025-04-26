@@ -15,7 +15,7 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 app.listen(port, () => {
   console.log(`⚡️[server]: Server is running at http://localhost:${port}`);

@@ -20,13 +20,18 @@ const app: Express = express();
 // Middleware
 app.use(morgan('dev')); // Logging
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3001', // Frontend URL
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 // Routes
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/prompt', promptRoutes);
 

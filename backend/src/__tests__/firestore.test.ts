@@ -1,48 +1,55 @@
-import { getFirestore } from 'firebase-admin/firestore';
+import { jest } from '@jest/globals';
+import { mocks } from '../test-utils/firebase-mock';
+import { CollectionReference, DocumentReference } from 'firebase-admin/firestore';
 
-jest.mock('firebase-admin/firestore');
+jest.mock('firebase-admin/firestore', () => ({
+  getFirestore: jest.fn().mockReturnValue(mocks.firestore),
+}));
 
 describe('Firestore Mock Tests', () => {
-  const db = getFirestore();
-  const mockDoc = { id: '123', name: 'Test Document' };
-
   beforeEach(() => {
+    // Clear all mocks before each test
     jest.clearAllMocks();
   });
 
-  test('should mock collection operations', async () => {
-    const collection = db.collection('test-collection');
-    const doc = collection.doc('123');
+  test('collection operations', async () => {
+    const collection = mocks.collection as unknown as CollectionReference;
+    const doc = collection.doc('123') as unknown as DocumentReference;
 
-    // Test set operation
-    await doc.set(mockDoc);
-    expect(doc.set).toHaveBeenCalledWith(mockDoc);
+    // Test document set
+    await doc.set({ name: 'Test' });
+    expect(mocks.document.set).toHaveBeenCalledWith({ name: 'Test' });
 
-    // Test get operation
+    // Test document get
     await doc.get();
-    expect(doc.get).toHaveBeenCalled();
+    expect(mocks.document.get).toHaveBeenCalled();
 
-    // Test update operation
-    const updateData = { name: 'Updated Document' };
-    await doc.update(updateData);
-    expect(doc.update).toHaveBeenCalledWith(updateData);
+    // Test document update
+    await doc.update({ name: 'Updated Test' });
+    expect(mocks.document.update).toHaveBeenCalledWith({ name: 'Updated Test' });
 
-    // Test delete operation
+    // Test document delete
     await doc.delete();
-    expect(doc.delete).toHaveBeenCalled();
+    expect(mocks.document.delete).toHaveBeenCalled();
   });
 
-  test('should mock query operations', async () => {
-    const collection = db.collection('test-collection');
-    const whereQuery = collection.where('name', '==', 'Test');
-    const orderByQuery = whereQuery.orderBy('createdAt', 'desc');
-    const limitQuery = orderByQuery.limit(10);
+  test('query operations', async () => {
+    const collection = mocks.collection as unknown as CollectionReference;
 
-    await limitQuery.get();
+    // Test where clause
+    collection.where('name', '==', 'Test');
+    expect(mocks.collection.where).toHaveBeenCalledWith('name', '==', 'Test');
 
-    expect(collection.where).toHaveBeenCalledWith('name', '==', 'Test');
-    expect(whereQuery.orderBy).toHaveBeenCalledWith('createdAt', 'desc');
-    expect(orderByQuery.limit).toHaveBeenCalledWith(10);
-    expect(limitQuery.get).toHaveBeenCalled();
+    // Test orderBy
+    collection.orderBy('name', 'desc');
+    expect(mocks.collection.orderBy).toHaveBeenCalledWith('name', 'desc');
+
+    // Test limit
+    collection.limit(10);
+    expect(mocks.collection.limit).toHaveBeenCalledWith(10);
+
+    // Test get
+    await collection.where('name', '==', 'Test').get();
+    expect(mocks.query.get).toHaveBeenCalled();
   });
 }); 

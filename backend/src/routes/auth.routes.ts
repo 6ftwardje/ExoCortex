@@ -31,16 +31,16 @@ router.get(
       accessToken: user.accessToken
     });
 
-    // In production, redirect to frontend with token
-    // For development, return token directly
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName
-      }
+    // Set JWT as cookie (for demo; in production, use secure, httpOnly, sameSite options)
+    res.cookie('jwt', token, {
+      httpOnly: false, // Set to true in production
+      secure: false,   // Set to true if using HTTPS
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
     });
+
+    // Redirect to frontend dashboard
+    res.redirect('http://localhost:3000/dashboard');
   }
 );
 
