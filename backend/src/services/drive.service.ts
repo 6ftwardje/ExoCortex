@@ -3,6 +3,10 @@ import { UserProfile } from '../types/auth.types';
 import { DriveFile, DriveFolder } from '../types/drive.types';
 import { DriveCacheService } from './drive-cache.service';
 
+interface DriveError extends Error {
+  code?: number;
+}
+
 export class DriveService {
   private drive;
   private cacheService: DriveCacheService;
@@ -30,20 +34,29 @@ export class DriveService {
 
   async listFiles(): Promise<DriveFile[]> {
     try {
-      // Try to get from cache first
+      // First try to get from cache
       const cachedFiles = await this.cacheService.getDriveStructure(this.userId);
       if (cachedFiles) {
         return cachedFiles;
       }
 
-      // If not in cache, fetch from Drive API
+      // If not in cache, fetch from Drive
       const response = await this.drive.files.list({
-        pageSize: 100,
-        fields: 'files(id, name, mimeType, parents, createdTime, modifiedTime, size, webViewLink)',
-        orderBy: 'name'
+        pageSize: 1000,
+        fields: 'files(id, name, mimeType, parents, createdTime)',
       });
 
-      const files = response.data.files as DriveFile[];
+      if (!response.data.files) {
+        return [];
+      }
+
+      const files = response.data.files.map(file => ({
+        id: file.id!,
+        name: file.name!,
+        mimeType: file.mimeType!,
+        parents: file.parents || [],
+        createdTime: file.createdTime!,
+      }));
 
       // Cache the results
       await this.cacheService.saveDriveStructure(this.userId, files);
@@ -51,34 +64,18 @@ export class DriveService {
       return files;
     } catch (error) {
       console.error('Error listing files:', error);
+      const driveError = error as DriveError;
+      if (driveError.code === 7) {
+        throw new Error('Firestore API is not enabled. Please enable it in the Google Cloud Console.');
+      }
       throw new Error('Failed to list files from Google Drive');
     }
   }
 
   async listFolders(): Promise<DriveFolder[]> {
     try {
-      // Try to get from cache first
-      const cachedFiles = await this.cacheService.getDriveStructure(this.userId);
-      if (cachedFiles) {
-        return cachedFiles.filter(
-          file => file.mimeType === 'application/vnd.google-apps.folder'
-        ) as DriveFolder[];
-      }
-
-      // If not in cache, fetch from Drive API
-      const response = await this.drive.files.list({
-        pageSize: 100,
-        fields: 'files(id, name, mimeType, parents, createdTime, modifiedTime, size, webViewLink)',
-        q: "mimeType='application/vnd.google-apps.folder'",
-        orderBy: 'name'
-      });
-
-      const folders = response.data.files as DriveFolder[];
-
-      // Cache the results
-      await this.cacheService.saveDriveStructure(this.userId, folders);
-
-      return folders;
+      const files = await this.listFiles();
+      return files.filter(file => file.mimeType === 'application/vnd.google-apps.folder') as DriveFolder[];
     } catch (error) {
       console.error('Error listing folders:', error);
       throw new Error('Failed to list folders from Google Drive');
@@ -89,10 +86,17 @@ export class DriveService {
     try {
       const response = await this.drive.files.get({
         fileId,
-        fields: 'id, name, mimeType, parents, createdTime, modifiedTime, size, webViewLink'
+        fields: 'id, name, mimeType, parents, createdTime',
       });
 
-      return response.data as DriveFile;
+      const file = response.data;
+      return {
+        id: file.id!,
+        name: file.name!,
+        mimeType: file.mimeType!,
+        parents: file.parents || [],
+        createdTime: file.createdTime!,
+      };
     } catch (error) {
       console.error('Error getting file details:', error);
       throw new Error('Failed to get file details from Google Drive');

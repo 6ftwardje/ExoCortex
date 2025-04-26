@@ -21,7 +21,7 @@ const app: Express = express();
 app.use(morgan('dev')); // Logging
 app.use(helmet());
 app.use(cors({
-  origin: 'http://localhost:3001', // Frontend URL
+  origin: 'http://localhost:3000', // Frontend URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
