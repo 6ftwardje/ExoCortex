@@ -8,4 +8,7 @@ export const API_ENDPOINTS = {
     google: `${API_BASE_URL}/api/auth/google`,
     callback: `${API_BASE_URL}/api/auth/google/callback`,
   },
+  prompt: {
+    execute: `${API_BASE_URL}/api/prompt/execute`,
+  },
 }; 

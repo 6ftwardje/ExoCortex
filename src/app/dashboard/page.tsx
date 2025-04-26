@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_ENDPOINTS } from '../../config/api';
+import { PromptResponse } from '../../types/prompt';
 
 // Types for Drive structure
 interface DriveItem {
@@ -16,6 +17,10 @@ export default function DashboardPage() {
   const [driveStructure, setDriveStructure] = useState<DriveItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState('');
+  const [isPromptLoading, setIsPromptLoading] = useState(false);
+  const [promptResponse, setPromptResponse] = useState<PromptResponse | null>(null);
+  const [promptError, setPromptError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check for JWT in cookies
@@ -63,6 +68,47 @@ export default function DashboardPage() {
     router.replace('/login');
   };
 
+  const handlePromptSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prompt.trim()) return;
+
+    try {
+      setIsPromptLoading(true);
+      setPromptError(null);
+      setPromptResponse(null);
+
+      const jwt = document.cookie.split('; ').find(row => row.startsWith('jwt='));
+      if (!jwt) {
+        router.replace('/login');
+        return;
+      }
+
+      const response = await fetch(API_ENDPOINTS.prompt.execute, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt.split('=')[1]}`
+        },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to execute prompt');
+      }
+
+      const data = await response.json();
+      setPromptResponse(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setPromptError(errorMessage);
+      console.error('Error executing prompt:', err);
+    } finally {
+      setIsPromptLoading(false);
+    }
+  };
+
   // Helper function to render Drive items recursively
   const renderDriveItems = (items: DriveItem[]) => {
     return (
@@ -105,6 +151,53 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      <div style={{ width: '100%', maxWidth: '800px', marginTop: '2rem' }}>
+        <h2>Prompt Input</h2>
+        <form onSubmit={handlePromptSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Enter your prompt (e.g., 'Place meeting notes in Oasix Meetings')"
+            style={{ 
+              padding: '0.5rem',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              minHeight: '100px',
+              resize: 'vertical'
+            }}
+          />
+          <button
+            type="submit"
+            disabled={isPromptLoading || !prompt.trim()}
+            style={{
+              padding: '0.5rem 1rem',
+              background: isPromptLoading ? '#ccc' : '#4285F4',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isPromptLoading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isPromptLoading ? 'Processing...' : 'Submit Prompt'}
+          </button>
+        </form>
+
+        {promptError && (
+          <div style={{ color: 'red', margin: '1rem 0', padding: '1rem', border: '1px solid red', borderRadius: '4px' }}>
+            <p><strong>Error:</strong> {promptError}</p>
+          </div>
+        )}
+
+        {promptResponse && (
+          <div style={{ margin: '1rem 0', padding: '1rem', border: '1px solid #ccc', borderRadius: '4px' }}>
+            <h3>Response</h3>
+            <p><strong>Action:</strong> {promptResponse.action}</p>
+            <p><strong>Folder:</strong> {promptResponse.folderPath.join(' > ')}</p>
+            <p><strong>Message:</strong> {promptResponse.message}</p>
+          </div>
+        )}
+      </div>
 
       <div style={{ marginTop: '2rem' }}>
         <button 

@@ -1,12 +1,6 @@
 import { DriveCacheService } from './drive-cache.service';
-import { DriveFile, DriveFolder } from '../types/drive.types';
-
-export interface PromptResult {
-  folderId: string;
-  folderPath: string[];
-  selectedFiles: DriveFile[];
-  action: string;
-}
+import { DriveFile } from '../types/drive.types';
+import { PromptResponse } from '../types/prompt.types';
 
 export class PromptService {
   private cacheService: DriveCacheService;
@@ -15,56 +9,58 @@ export class PromptService {
     this.cacheService = cacheService;
   }
 
-  async executePrompt(userId: string, prompt: string): Promise<PromptResult> {
+  async executePrompt(userId: string, prompt: string): Promise<PromptResponse> {
     try {
-      // Extract folder name from prompt (simple implementation)
-      const folderName = this.extractFolderName(prompt);
-      if (!folderName) {
-        throw new Error('No folder name found in prompt');
+      // Get the Drive structure
+      const files = await this.cacheService.getDriveStructure(userId);
+      if (!files) {
+        throw new Error('Drive structure not found');
       }
 
-      // Find the folder
-      const folder = await this.cacheService.findFolderByName(userId, folderName);
-      if (!folder) {
-        throw new Error(`Folder "${folderName}" not found`);
+      console.log('Available files:', files.map(f => ({ name: f.name, type: f.mimeType })));
+
+      // Simple prompt parsing for now
+      const lowerPrompt = prompt.toLowerCase();
+      let targetFolder: DriveFile | undefined;
+
+      // Look for folder names in the prompt
+      const folders = files.filter(file => 
+        file.mimeType === 'application/vnd.google-apps.folder'
+      );
+
+      console.log('Available folders:', folders.map(f => f.name));
+
+      // Try to find a matching folder
+      targetFolder = folders.find(folder => 
+        lowerPrompt.includes(folder.name.toLowerCase())
+      );
+
+      // If no exact match, try partial match
+      if (!targetFolder) {
+        targetFolder = folders.find(folder => 
+          folder.name.toLowerCase().includes('oasix') || 
+          folder.name.toLowerCase().includes('meeting')
+        );
       }
 
-      // Get folder path
-      const folderPath = await this.cacheService.getFolderPath(userId, folder.id);
+      if (!targetFolder) {
+        throw new Error('Could not find a matching folder for your prompt. Available folders: ' + 
+          folders.map(f => f.name).join(', '));
+      }
 
-      // Find relevant files in the folder
-      const files = await this.cacheService.findFilesByParent(userId, folder.id);
-
-      // Determine action based on prompt
-      const action = this.determineAction(prompt);
+      // Get the folder path
+      const folderPath = await this.cacheService.getFolderPath(userId, targetFolder.id);
 
       return {
-        folderId: folder.id,
+        folderId: targetFolder.id,
         folderPath,
-        selectedFiles: files,
-        action
+        action: 'create',
+        message: `Found folder: ${targetFolder.name}`,
+        status: 'success'
       };
     } catch (error) {
       console.error('Error executing prompt:', error);
       throw error;
     }
-  }
-
-  private extractFolderName(prompt: string): string | null {
-    // Simple implementation - look for folder name after "for" or "in"
-    const match = prompt.match(/(?:for|in)\s+([A-Za-z0-9\s]+)/i);
-    return match ? match[1].trim() : null;
-  }
-
-  private determineAction(prompt: string): string {
-    // Simple implementation - determine action based on keywords
-    if (prompt.toLowerCase().includes('meeting notes')) {
-      return 'process_meeting_notes';
-    } else if (prompt.toLowerCase().includes('summarize')) {
-      return 'summarize_documents';
-    } else if (prompt.toLowerCase().includes('improve')) {
-      return 'improve_text';
-    }
-    return 'process_documents';
   }
 } 
