@@ -23,6 +23,7 @@ router.get(
   '/google/callback',
   passport.authenticate('google', { session: false }),
   (req, res) => {
+    console.log('Google callback received:', req.user);
     const user = req.user as UserProfile;
     const token = generateToken({
       id: user.id,
@@ -31,18 +32,40 @@ router.get(
       accessToken: user.accessToken
     });
 
-    // Set JWT as cookie (for demo; in production, use secure, httpOnly, sameSite options)
-    res.cookie('jwt', token, {
-      httpOnly: false, // Set to true in production
-      secure: false,   // Set to true if using HTTPS
+    console.log('Generated token:', token);
+    // Set the token in a cookie and redirect to frontend
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000 // 1 day
+      path: '/'
     });
-
+    
     // Redirect to frontend dashboard
-    res.redirect('http://localhost:3000/dashboard');
+    res.redirect(`http://localhost:3002/dashboard`);
   }
 );
+
+// Get current user
+router.get('/me', verifyToken, (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+  res.json(req.user);
+});
+
+// Logout endpoint
+router.post('/logout', verifyToken, (req, res) => {
+  // Clear the token cookie
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+  res.json({ message: 'Logged out successfully' });
+});
 
 // Test protected route
 router.get('/protected', verifyToken, (req, res) => {

@@ -2,20 +2,23 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const isAuthenticated = request.cookies.has('token');
+  const token = request.cookies.get('token')?.value;
   const isLoginPage = request.nextUrl.pathname === '/login';
+  const isDashboardPage = request.nextUrl.pathname === '/dashboard';
 
-  if (!isAuthenticated && !isLoginPage) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // If on login page and has token, redirect to dashboard
+  if (isLoginPage && token) {
+    return NextResponse.redirect(new URL('/dashboard', 'http://localhost:3002'));
   }
 
-  if (isAuthenticated && isLoginPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // If on dashboard and no token, redirect to login
+  if (isDashboardPage && !token) {
+    return NextResponse.redirect(new URL('/login', 'http://localhost:3002'));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/login', '/dashboard'],
 }; 

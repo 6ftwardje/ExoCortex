@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import passport from 'passport';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables
 dotenv.config();
@@ -21,14 +22,13 @@ const app: Express = express();
 app.use(morgan('dev')); // Logging
 app.use(helmet());
 app.use(cors({
-  origin: 'http://localhost:3000', // Frontend URL
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: 'http://localhost:3002',
+  credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
+app.use(cookieParser());
 
 // Routes
 app.use('/api/auth', authRoutes);

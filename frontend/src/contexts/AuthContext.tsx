@@ -2,10 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import { AuthContextType, AuthState, User } from '@/types/auth';
-
-const BACKEND_URL = 'http://localhost:3000';
+import { API_CONFIG } from '@/config/constants';
+import axiosInstance from '@/config/axios';
 
 const initialState: AuthState = {
   user: null,
@@ -20,32 +19,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const login = () => {
-    window.location.href = `${BACKEND_URL}/auth/google`;
+    console.log('AuthContext: Initiating login...');
+    window.location.href = `${API_CONFIG.API_BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.GOOGLE}`;
   };
 
   const logout = async () => {
+    console.log('AuthContext: Starting logout process...');
     try {
-      await axios.post(`${BACKEND_URL}/auth/logout`, {}, {
-        withCredentials: true
-      });
-      setState({ ...state, user: null });
-      router.push('/login');
+      // Clear user state first to prevent flashing of dashboard
+      setState({ ...state, user: null, isLoading: false });
+      
+      // Clear drive cache
+      console.log('AuthContext: Clearing drive cache...');
+      await axiosInstance.post(API_CONFIG.ENDPOINTS.DRIVE.CLEAR_CACHE);
+      
+      // Then logout
+      console.log('AuthContext: Calling logout endpoint...');
+      await axiosInstance.post(API_CONFIG.ENDPOINTS.AUTH.LOGOUT);
+      
+      console.log('AuthContext: Redirecting to login page...');
+      // Use window.location for a hard redirect to ensure clean state
+      window.location.href = '/login';
     } catch (error) {
-      setState({ ...state, error: 'Failed to logout' });
+      console.error('AuthContext: Logout error:', error);
+      setState({ ...state, error: 'Failed to logout', isLoading: false });
     }
   };
 
   const checkAuth = async () => {
+    console.log('AuthContext: Checking authentication...');
     try {
-      const response = await axios.get(`${BACKEND_URL}/auth/me`, {
-        withCredentials: true
-      });
+      console.log('AuthContext: Fetching user data...');
+      const response = await axiosInstance.get(API_CONFIG.ENDPOINTS.AUTH.ME);
+      console.log('AuthContext: User data received:', response.data);
       setState({
         user: response.data,
         isLoading: false,
         error: null,
       });
     } catch (error) {
+      console.error('AuthContext: Authentication check error:', error);
       setState({
         user: null,
         isLoading: false,
@@ -55,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    console.log('AuthContext: Initial auth check...');
     checkAuth();
   }, []);
 

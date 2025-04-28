@@ -21,24 +21,42 @@ export const verifyToken = (
   next: NextFunction
 ): void => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      res.status(401).json({ message: 'No token provided' });
-      return;
-    }
+    // First try to get token from cookie
+    const token = req.cookies.token;
+    
+    if (!token) {
+      // If no cookie, try Authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        res.status(401).json({ message: 'No token provided' });
+        return;
+      }
+      const headerToken = authHeader.split(' ')[1];
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET is not defined');
+      }
 
-    const token = authHeader.split(' ')[1];
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET is not defined');
-    }
+      const decoded = jwt.verify(headerToken, process.env.JWT_SECRET) as TokenPayload;
+      req.user = {
+        id: decoded.id,
+        email: decoded.email,
+        displayName: decoded.displayName,
+        accessToken: decoded.accessToken
+      };
+    } else {
+      // Verify cookie token
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET is not defined');
+      }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as TokenPayload;
-    req.user = {
-      id: decoded.id,
-      email: decoded.email,
-      displayName: decoded.displayName,
-      accessToken: decoded.accessToken
-    };
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as TokenPayload;
+      req.user = {
+        id: decoded.id,
+        email: decoded.email,
+        displayName: decoded.displayName,
+        accessToken: decoded.accessToken
+      };
+    }
 
     next();
   } catch (error) {

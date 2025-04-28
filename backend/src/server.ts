@@ -15,7 +15,7 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-const port = process.env.PORT || 3001;
+const port = 3001; // Always use port 3001 for backend
 
 app.listen(port, () => {
   console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
